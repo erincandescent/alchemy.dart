@@ -143,7 +143,9 @@ void processDocumentAnnotations() {
   }
 }
 
-class _DocMixin {
+abstract class _DocMixin {
+  get _docType;
+  
   void _raise(Invocation inv) {
     throw new NoSuchMethodError(this, inv.memberName, inv.positionalArguments,
         inv.namedArguments);
@@ -152,7 +154,7 @@ class _DocMixin {
   // XXX need to handle this for SubDocuments too
   noSuchMethod(Invocation invocation) {
     dynamic meth =
-        ExDocumentType.map[runtimeType].handlers[invocation.memberName];
+        _docType.handlers[invocation.memberName];
     if (meth == null) {
       _raise(invocation);
     }
@@ -189,6 +191,9 @@ abstract class Document extends DelegatingMap<String, dynamic> with _DocMixin {
   /// Is this object dirty?
   bool _dirty = false;
 
+  /// Get the document type
+  ExDocumentType get _docType => ExDocumentType.map[runtimeType];
+  
   /// Make the object dirty
   _makeDirty() {
     if (!_dirty) {
@@ -224,11 +229,35 @@ abstract class Document extends DelegatingMap<String, dynamic> with _DocMixin {
   Document.forImport(Map<String, dynamic> beingImported)
       : super({}) {
     _createNew(new Map.fromIterable(
-        ExDocumentType.map[runtimeType].referenceFields, value: (k) => beingImported[k])
+        _docType.referenceFields, value: (k) => beingImported[k])
         );
   }
 
-  // Implements prescriebd behavor for [new]
+  /// "Exports" this object
+  /// The default behaviour of this object is to clone the map, filter out any
+  /// private properties (i.e. those prefixed with an udnerscore) and then recursively
+  /// export up to a maximum depth of [depth]
+  Future<Map<String, dynamic>> export({depth: 2}) {
+    var map = new Map.fromIterable(
+        keys.where((k) => !k.startsWith("_")), 
+        value: (k) => this[k]);
+    
+    if(depth > 0) {
+      var exporters = _docType.exporters;
+      return Future.forEach(exporters.keys.where((k) => containsKey(k)), (name) {
+        var exp = exporters[name];
+        return exp(this, depth).then((res) {
+          map[name] = res;
+        });
+      }).then((_) {
+        return map;
+      });
+    } else {
+      return new Future.value(map);
+    }
+  }
+  
+  // Implements prescribed behavor for [new]
   void _createNew(Map<String, dynamic> map) {
     if(map != null) this.addAll(map);
 

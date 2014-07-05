@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:alchemy/core.dart';
 
 /// A getter
-typedef dynamic Getter(dynamic object);
+typedef Future Getter(dynamic object);
 /// A setter
 typedef    void Setter(dynamic object, dynamic value);
 /// An importer. Importers are used when special logic is required to decode an
@@ -12,7 +12,7 @@ typedef    void Setter(dynamic object, dynamic value);
 typedef Future Importer(dynamic object, dynamic value);
 /// An exporter. An exporter converts a [value] into a form suitable for external
 /// serialization
-typedef Future Exporter(dynamic object, dynamic value);
+typedef Future Exporter(dynamic object, int depth);
 
 abstract class FieldType {
   /// Returns a getter
@@ -65,6 +65,12 @@ class _DocumentType extends FieldType {
     return (object, value) => importDocument(type, value).then((v) {
       set(object, v);
     });
+  }
+  
+  @override
+  Exporter exporter(Type type, String name) {
+    Getter get = getter(type, name);
+    return (object, int depth) => get(object).then((value) => value.export(depth: depth - 1));
   }
 }
 
@@ -128,6 +134,10 @@ void processFields(ExDocumentType edt, ClassMirror class_) {
       } else {
         name = name.substring(0, name.length - 1);
         edt.handlers[decl.simpleName] = handler.setter(type.reflectedType, name);
+        var exporter = handler.exporter(type.reflectedType, name);
+        if(exporter != null) {
+          edt.exporters[name] = exporter;
+        }
       }
     }
   }
