@@ -1,7 +1,7 @@
 name: alchemy
-version: 0.1.0+1
+version: 0.1.1
 author: Owen Shepherd <*@owenshepherd.net>
-description: A document database mapper. Presently backed by MongoDB, but with scope for other databases in future.
+description: A document database mapper. Presently backed by MongoDB, but with plans for other databases in future.
 homepage: https://github.com/oshepherd/alchemy.dart
 dependencies:
   bson: '>=0.1.18 <0.2.0'
