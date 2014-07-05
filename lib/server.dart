@@ -7,13 +7,20 @@ import 'package:alchemy/core.dart';
 
 class Database {
   String _connStr;
+  mdb.Db _db;
+  Future _openFuture;
   
   Database(String connectionString) 
-      : _connStr = connectionString;
+      : _connStr = connectionString
+      , _db = new mdb.Db(connectionString) {
+  }
   
   Future<Connection> connect() {
-    var db = new mdb.Db(_connStr);
-    return db.open().then((_) => new _Connection(db));
+    if(_openFuture == null) {
+      _openFuture = _db.open();
+    }
+    
+    return _openFuture.then((_) => new _Connection(_db));
   }
 }
 
@@ -38,9 +45,7 @@ class _Connection extends Connection {
   
   @override
   Future close() {
-    return _conn.close().then((_) {
-      _conn = null;
-    });
+    return new Future.value(null);
   }
 }
 
@@ -108,7 +113,9 @@ class _Collection extends Collection {
 
     cursor.skip = skip;
     cursor.limit = limit;
-        
+    
+    var sc = new StreamController();
+    
     return cursor.stream.asyncMap((m) {
       if(!_known.containsKey(m["_id"])) {
         var obj = _dty.mirror.newInstance(#revive, [m]).reflectee;
@@ -118,7 +125,6 @@ class _Collection extends Collection {
       } else {
         // Explicitly *DONT* override members here to avoid clobbering unsaved
         // changes
-        print("Map ${m} to known ${m['_id']}");
         return _known[m["_id"]];
       }
     });
